@@ -9,10 +9,7 @@ INT APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrev, LPSTR cmdline, INT cm
 		free(stWnd);
 		return 0L;
 	}
-	if (WM_QUIT == stWnd->Run())
-	{
-		return 0;
-	}
+	stWnd->Run();//
 	SettWnd::Settings* settings = (SettWnd::Settings*)malloc(sizeof SettWnd::Settings);
 	*settings = stWnd->GetSettings();
 	stWnd->FreezeWindow();/* hide and disable window */
