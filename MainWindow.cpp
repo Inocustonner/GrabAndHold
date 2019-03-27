@@ -68,7 +68,7 @@ bool MainWindow::InitializeWindow(HINSTANCE hInstance, INT width, INT height, BO
 	if (!RegisterWindow(m_WindowName, hInstance, this->WndProc))
 		return false;
 	INT x, y;// window positnion coordinates
-	m_style = fullscreen ? WS_POPUP : WS_VISIBLE | WS_SYSMENU | WS_CAPTION;
+	m_style = fullscreen ? WS_POPUP : WS_OVERLAPPED | WS_SYSMENU | WS_CAPTION;
 
 	if (1 == fullscreen)
 	{
