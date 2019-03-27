@@ -34,7 +34,7 @@ bool MainWindow::Initialize(HINSTANCE hInstance, INT width, INT height, BOOL ful
 	m_obj = (NObject*)malloc(sizeof NObject);
 	if (!m_obj)/* if mem wasn't allocated*/
 		return false;
-	if (!m_obj->Initialize("./test.bmp", { 0, 0 }, { 0, 0 }))/* if initialize failed */
+	if (!m_obj->Initialize("./test.bmp", "./testMask.bmp", { 100, 0 }, { 0, 0 }))/* if initialize failed */
 	{
 		m_obj->~Object();
 		free(m_obj);
@@ -136,7 +136,7 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 		HDC hdc = GetDC(hWnd);
 		RECT rc;
 		GetClientRect(hWnd, &rc);
-		FillRect(hdc, &rc, CreateSolidBrush(RGB(0x00, 0xFF, 0xFF)));
+		FillRect(hdc, &rc, CreateSolidBrush(RGB(0xFF, 0xFF, 0xFF)));
 		ReleaseDC(hWnd, hdc);
 		return 1L;
 	}

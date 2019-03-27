@@ -12,6 +12,7 @@ namespace ObjectSpace
 	{
 	private:
 		HBITMAP m_sprite;
+		HBITMAP m_mask;
 		COORD m_pos;
 		COORD m_velocity;
 		COORD m_grabPoint;
@@ -21,14 +22,14 @@ namespace ObjectSpace
 		Object() = default;
 		Object(Object&) = default;
 		Object(Object&&) = default;
-		Object(HBITMAP hbmp, COORD pos, COORD grabPoint) : m_sprite(hbmp), m_pos(pos), m_grabPoint(grabPoint)
+		Object(HBITMAP hbmp, HBITMAP mask, COORD pos, COORD grabPoint) : m_sprite(hbmp), m_mask(mask), m_pos(pos), m_grabPoint(grabPoint)
 		{
 			BITMAP bmp;
 			GetObject(m_sprite, sizeof bmp, &bmp);
 			m_size.width = (SHORT)bmp.bmWidth;
 			m_size.height = (SHORT)bmp.bmHeight;
 		}
-		Object(LPCSTR path, COORD pos, COORD grabPoint) : m_pos(pos), m_grabPoint(grabPoint)
+		Object(LPCSTR path, LPCSTR maskPath, COORD pos, COORD grabPoint) : m_pos(pos), m_grabPoint(grabPoint)
 		{
 			m_sprite = (HBITMAP)LoadImage(NULL, path, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 			if (NULL == m_sprite)
@@ -36,12 +37,18 @@ namespace ObjectSpace
 				MessageBox(NULL, "Failed to load sprite", "Error", MB_OK);
 				return;
 			}
+			m_mask = (HBITMAP)LoadImage(NULL, maskPath, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+			if (NULL == m_mask)
+			{
+				MessageBox(NULL, "Failed to load mask", "Error", MB_OK);
+				return;
+			}
 			BITMAP bmp;
-			GetObject(m_sprite, sizeof bmp, &bmp);
+			GetObject(m_sprite, sizeof bmp, &bmp);	
 			m_size.width = (SHORT)bmp.bmWidth;
 			m_size.height = (SHORT)bmp.bmHeight;
 		}
-		bool Initialize(LPCSTR path, COORD pos, COORD grabPoint)
+		bool Initialize(LPCSTR path, LPCSTR maskPath, COORD pos, COORD grabPoint)
 		{
 			m_pos = pos; 
 			m_grabPoint = grabPoint;
@@ -51,6 +58,12 @@ namespace ObjectSpace
 				MessageBox(NULL, "Failed to load sprite", "Error", MB_OK);
 				return false;
 			}
+			m_mask = (HBITMAP)LoadImage(NULL, maskPath, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+			if (NULL == m_mask)
+			{
+				MessageBox(NULL, "Failed to load mask", "Error", MB_OK);
+				return false;
+			}
 			BITMAP bmp;
 			GetObject(m_sprite, sizeof bmp, &bmp);
 			m_size.width = (SHORT)bmp.bmWidth;
@@ -58,11 +71,12 @@ namespace ObjectSpace
 			return true;
 		}
 
-		bool Initialize(HBITMAP hbmp, COORD pos, COORD grabPoint)
+		bool Initialize(HBITMAP hbmp, HBITMAP mask, COORD pos, COORD grabPoint)
 		{
 			m_pos = pos;
 			m_grabPoint = grabPoint;
 			m_sprite = hbmp;
+			m_mask = mask;
 			BITMAP bmp;
 			GetObject(m_sprite, sizeof bmp, &bmp);
 			m_size.width = (SHORT)bmp.bmWidth;
@@ -90,6 +104,10 @@ namespace ObjectSpace
 		{
 			return m_sprite;
 		}
+		HBITMAP GetMask()
+		{
+			return m_mask;
+		}
 		Size GetSize()
 		{
 			return m_size;
@@ -100,18 +118,36 @@ namespace ObjectSpace
 		void Render(HDC* hdc, Object **objects, SHORT count)
 		{
 			HDC memDC = CreateCompatibleDC(*hdc);
+			HDC maskDC = CreateCompatibleDC(*hdc);
 			HGDIOBJ oldBmp = NULL;
+			HGDIOBJ oldMask = NULL;
+
 			for (SHORT i = 0; i < count; ++i)
 			{
 				oldBmp = SelectObject(memDC, objects[i]->GetSprite());
+				oldMask = SelectObject(maskDC, objects[i]->GetMask());
+				/* Do drawing with mask */
 				BitBlt(*hdc,
 					objects[i]->GetPos().X, objects[i]->GetPos().Y,
 					objects[i]->GetSize().width, objects[i]->GetSize().height,
-					memDC, 0, 0, SRCCOPY);
+					memDC, 0, 0, SRCINVERT);
+				BitBlt(*hdc,
+					objects[i]->GetPos().X, objects[i]->GetPos().Y,
+					objects[i]->GetSize().width, objects[i]->GetSize().height,
+					maskDC, 0, 0, SRCAND);
+				BitBlt(*hdc,
+					objects[i]->GetPos().X, objects[i]->GetPos().Y,
+					objects[i]->GetSize().width, objects[i]->GetSize().height,
+					memDC, 0, 0, SRCINVERT);
+
 				SelectObject(memDC, oldBmp);
+				SelectObject(maskDC, oldMask);
 			}
+
+			DeleteObject(oldMask);
 			DeleteObject(oldBmp);
 			DeleteDC(memDC);
+			DeleteDC(maskDC);
 		}
 	}
 }
