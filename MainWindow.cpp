@@ -20,6 +20,28 @@ bool RegisterWindow(LPCSTR wndName, HINSTANCE hInstance, LRESULT (CALLBACK *WndP
 	return true;
 }
 
+MainWindow::~MainWindow()
+{
+	if (m_obj)
+		m_obj->~Object();
+		free(m_obj);
+}
+
+bool MainWindow::Initialize(HINSTANCE hInstance, INT width, INT height, BOOL fullscreen)
+{
+	if (!InitializeWindow(hInstance, width, height, fullscreen))
+		return false;
+	m_obj = (NObject*)malloc(sizeof NObject);
+	if (!m_obj)/* if mem wasn't allocated*/
+		return false;
+	if (!m_obj->Initialize("./test.bmp", { 0, 0 }, { 0, 0 }))/* if initialize failed */
+	{
+		m_obj->~Object();
+		free(m_obj);
+	}
+	return true;
+}
+
 bool MainWindow::InitializeWindow(HINSTANCE hInstance, INT width, INT height, BOOL fullscreen)
 {
 	if (!RegisterWindow(m_WindowName, hInstance, this->WndProc))
@@ -88,6 +110,12 @@ void MainWindow::Run()
 		{
 			DispatchMessage(&msg);
 			TranslateMessage(&msg);
+			if (WM_PAINT == msg.message)
+			{
+				HDC hdc = GetDC(m_hWnd);
+				ObjectSpace::Render(&hdc, &m_obj, 1);
+				ReleaseDC(m_hWnd, hdc);
+			}
 		}
 	}
 }
@@ -108,7 +136,7 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 		HDC hdc = GetDC(hWnd);
 		RECT rc;
 		GetClientRect(hWnd, &rc);
-		FillRect(hdc, &rc, CreateSolidBrush(RGB(0xFF, 0xFF, 0xFF)));
+		FillRect(hdc, &rc, CreateSolidBrush(RGB(0x00, 0xFF, 0xFF)));
 		ReleaseDC(hWnd, hdc);
 		return 1L;
 	}

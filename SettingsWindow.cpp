@@ -192,7 +192,7 @@ LRESULT CALLBACK SettWnd::DlgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
 			}
 			else
 			{
-				image = (HBITMAP)LoadImage(GetModuleHandle(NULL), ".\\gaymenu.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+				image = (HBITMAP)LoadImage(GetModuleHandle(NULL), ".\\bluemenu.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 				CheckDlgButton(hWnd, CHECKBOX_BLUE, BST_CHECKED);
 				InvalidateRect(hWnd, NULL, TRUE);
 			}

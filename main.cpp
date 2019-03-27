@@ -15,7 +15,7 @@ INT APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrev, LPSTR cmdline, INT cm
 	stWnd->FreezeWindow();/* hide and disable window */
 
 	MainWindow mainWindow;
-	if (!mainWindow.InitializeWindow(hInstance, settings->width, settings->height, settings->fullscreen))
+	if (!mainWindow.Initialize(hInstance, settings->width, settings->height, settings->fullscreen))
 	{
 		free(settings);
 		return 0;

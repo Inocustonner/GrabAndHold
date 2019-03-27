@@ -32,4 +32,4 @@ private:
 	HWND m_hWnd;
 	Settings m_settings;
 };
-#endif 
+#endif
