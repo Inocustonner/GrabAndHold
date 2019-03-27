@@ -13,6 +13,7 @@ public:
 	MainWindow(MainWindow&) = delete;
 	MainWindow(MainWindow&&) = delete;
 	bool Initialize(HINSTANCE hInstance, INT width, INT height, BOOL fullscreen);
+	bool CreateObjects(SHORT count, LPCSTR* path, LPCSTR* maskPaths, COORD* positions, COORD* grabPoints);
 	void Run();
 	static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	
@@ -21,6 +22,7 @@ private:
 	LPCSTR m_WindowName = "Grab and Hold";
 	HWND m_hWnd;
 	DWORD m_style;
-	NObject* m_obj;
+	NObject** m_ppobjs;
+	SHORT m_objsCnt;
 };
 #endif

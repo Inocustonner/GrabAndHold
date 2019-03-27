@@ -115,6 +115,7 @@ namespace ObjectSpace
 	};
 	namespace
 	{
+		/* This function render objects. But it going to be changed soon for to support double buffering */
 		void Render(HDC* hdc, Object **objects, SHORT count)
 		{
 			HDC memDC = CreateCompatibleDC(*hdc);
@@ -143,7 +144,6 @@ namespace ObjectSpace
 				SelectObject(memDC, oldBmp);
 				SelectObject(maskDC, oldMask);
 			}
-
 			DeleteObject(oldMask);
 			DeleteObject(oldBmp);
 			DeleteDC(memDC);

@@ -1,5 +1,5 @@
 #include "MainWindow.hpp"
-bool RegisterWindow(LPCSTR wndName, HINSTANCE hInstance, LRESULT (CALLBACK *WndProc)(HWND, UINT, WPARAM, LPARAM))
+bool RegisterWindow(LPCSTR wndName, HINSTANCE hInstance, LRESULT(CALLBACK *WndProc)(HWND, UINT, WPARAM, LPARAM))
 {
 	WNDCLASSEX wc;
 	ZeroMemory(&wc, sizeof WNDCLASSEX);
@@ -22,22 +22,43 @@ bool RegisterWindow(LPCSTR wndName, HINSTANCE hInstance, LRESULT (CALLBACK *WndP
 
 MainWindow::~MainWindow()
 {
-	if (m_obj)
-		m_obj->~Object();
-		free(m_obj);
+	for (SHORT i = 0; i < m_objsCnt; ++i)
+	{
+		delete m_ppobjs[i];
+	}
+	delete[] m_ppobjs;
 }
 
 bool MainWindow::Initialize(HINSTANCE hInstance, INT width, INT height, BOOL fullscreen)
 {
 	if (!InitializeWindow(hInstance, width, height, fullscreen))
 		return false;
-	m_obj = (NObject*)malloc(sizeof NObject);
-	if (!m_obj)/* if mem wasn't allocated*/
+	const int count = 2;
+	LPCSTR paths[count] = { "./test.bmp", "./test2.bmp" };
+	LPCSTR maskPaths[count] = { "./testMask.bmp", "./testMask.bmp" };
+	COORD poses[count] = { {50, 50}, {200, 100} };
+	COORD grabs[count] = { {0, 0}, {0, 0} };
+	if (!CreateObjects(count, paths, maskPaths, poses, grabs))
 		return false;
-	if (!m_obj->Initialize("./test.bmp", "./testMask.bmp", { 100, 0 }, { 0, 0 }))/* if initialize failed */
+	return true;
+}
+
+bool MainWindow::CreateObjects(SHORT count, LPCSTR* path, LPCSTR* maskPaths, COORD* positions, COORD* grabPoints)
+{
+	m_objsCnt = count;
+	m_ppobjs = new NObject*[m_objsCnt];
+	if (!m_ppobjs)
 	{
-		m_obj->~Object();
-		free(m_obj);
+		MessageBox(NULL, "Failed to allocate memory", "Error", MB_OK);
+		return false;
+	}
+	for (SHORT i = 0; i < m_objsCnt; ++i)
+	{
+		m_ppobjs[i] = new NObject;
+		if (!m_ppobjs[i]->Initialize(path[i], maskPaths[i], positions[i], grabPoints[i]))
+		{
+			return false;
+		}
 	}
 	return true;
 }
@@ -47,7 +68,7 @@ bool MainWindow::InitializeWindow(HINSTANCE hInstance, INT width, INT height, BO
 	if (!RegisterWindow(m_WindowName, hInstance, this->WndProc))
 		return false;
 	INT x, y;// window positnion coordinates
-	m_style = fullscreen ? WS_POPUP : WS_OVERLAPPEDWINDOW;
+	m_style = fullscreen ? WS_POPUP : WS_VISIBLE | WS_SYSMENU | WS_CAPTION;
 
 	if (1 == fullscreen)
 	{
@@ -113,7 +134,7 @@ void MainWindow::Run()
 			if (WM_PAINT == msg.message)
 			{
 				HDC hdc = GetDC(m_hWnd);
-				ObjectSpace::Render(&hdc, &m_obj, 1);
+				ObjectSpace::Render(&hdc, m_ppobjs, m_objsCnt);
 				ReleaseDC(m_hWnd, hdc);
 			}
 		}
