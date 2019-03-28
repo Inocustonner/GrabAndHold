@@ -136,11 +136,27 @@ void MainWindow::Run()
 	}
 }
 
+void DrawBackGround(HWND hWnd, HDC* hdc, HBITMAP backGround, RECT* lprect, COORD srcOff)
+{
+	HDC srcDC = CreateCompatibleDC(*hdc);
+	HGDIOBJ oldBmp = nullptr;
+	if (nullptr == lprect)
+	{
+		lprect = new RECT;
+		GetClientRect(hWnd, lprect);
+	}
+	oldBmp = SelectObject(srcDC, backGround);
+	BitBlt(*hdc, lprect->left, lprect->top, lprect->right - lprect->left, lprect->bottom - lprect->top, srcDC, srcOff.X, srcOff.Y, SRCCOPY);
+	SelectObject(srcDC, oldBmp);
+	DeleteObject(oldBmp);
+	DeleteDC(srcDC);
+}
+
 LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	static HDC backbuffer;/* back buffer dc */
 	static HBITMAP backbufferBitmap;/* back buffer */
-
+	static HBITMAP bg;/* back ground image */
 	static ObjectSpace::SIZE areaSize; /* area size = Client area size */
 	switch (msg)
 	{
@@ -156,13 +172,15 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 		backbufferBitmap = CreateCompatibleBitmap(hdc, areaSize.width, areaSize.height);
 		SelectObject(backbuffer, backbufferBitmap);
 		ReleaseDC(hWnd, hdc);
+
+		bg = (HBITMAP)LoadImage(NULL, "./bgtest.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 		return 0L;
 	}
 	case WM_PAINT:
 	{
 		PAINTSTRUCT ps;
 		MainWindow* mw = (MainWindow*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
-
+		DrawBackGround(hWnd, &backbuffer, bg, nullptr, { 500, 500 });
 		ObjectSpace::Render(&backbuffer, mw->m_ppobjs, mw->m_objsCnt);
 
 		HDC hdc = BeginPaint(hWnd, &ps);
@@ -172,7 +190,7 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 	}
 	case WM_ERASEBKGND:
 	{
-		return 0L;
+		return 1L;
 	}
 	/* if user clicked then look was it click on an object and if he did set the object as chosen */
 	case WM_LBUTTONDOWN:
@@ -241,6 +259,7 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 	case WM_QUIT:
 	{
 		DeleteObject(backbufferBitmap);
+		DeleteObject(bg);
 		DeleteDC(backbuffer);
 		PostQuitMessage(0);
 		return 0L;
