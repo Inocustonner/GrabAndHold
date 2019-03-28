@@ -138,25 +138,40 @@ void MainWindow::Run()
 
 LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+	static HDC backbuffer;/* back buffer dc */
+	static HBITMAP backbufferBitmap;/* back buffer */
+
+	static ObjectSpace::SIZE areaSize; /* area size = Client area size */
 	switch (msg)
 	{
+	case WM_CREATE:
+	{
+		HDC hdc = GetDC(hWnd);
+		backbuffer = CreateCompatibleDC(hdc);
+
+		RECT rc;
+		GetClientRect(hWnd, &rc);
+		areaSize.width = rc.right - rc.left;
+		areaSize.height = rc.bottom - rc.top;
+		backbufferBitmap = CreateCompatibleBitmap(hdc, areaSize.width, areaSize.height);
+		SelectObject(backbuffer, backbufferBitmap);
+		ReleaseDC(hWnd, hdc);
+		return 0L;
+	}
 	case WM_PAINT:
 	{
 		PAINTSTRUCT ps;
 		MainWindow* mw = (MainWindow*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
-		HDC hdc = BeginPaint(hWnd, &ps);
 
-		ObjectSpace::Render(&hdc, mw->m_ppobjs, mw->m_objsCnt);
+		ObjectSpace::Render(&backbuffer, mw->m_ppobjs, mw->m_objsCnt);
+
+		HDC hdc = BeginPaint(hWnd, &ps);
+		BitBlt(hdc, 0, 0, areaSize.width, areaSize.height, backbuffer, 0, 0, SRCCOPY);
 		EndPaint(hWnd, &ps);
 		return 0L;
 	}
 	case WM_ERASEBKGND:
 	{
-		HDC hdc = GetDC(hWnd);
-		RECT rc;
-		GetClientRect(hWnd, &rc);
-		FillRect(hdc, &rc, CreateSolidBrush(RGB(0xFF, 0xFF, 0xFF)));
-		ReleaseDC(hWnd, hdc);
 		return 0L;
 	}
 	/* if user clicked then look was it click on an object and if he did set the object as chosen */
@@ -204,11 +219,8 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 				COORD p;/* mouse position on the window */
 				p.Y = HIWORD(lParam);
 				p.X = LOWORD(lParam);
-				COORD oldPos = mw->m_chosen->GetPos();
 				mw->m_chosen->MoveTo(p);
-				RECT redrawRgn{ oldPos.X, oldPos.Y,
-					oldPos.X + mw->m_chosen->GetSize().width, oldPos.Y + mw->m_chosen->GetSize().height };
-				InvalidateRect(hWnd, nullptr, TRUE);
+				InvalidateRect(hWnd, nullptr, FALSE);
 			}
 		}
 		return 0L;
@@ -228,6 +240,8 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 	case WM_DESTROY:
 	case WM_QUIT:
 	{
+		DeleteObject(backbufferBitmap);
+		DeleteDC(backbuffer);
 		PostQuitMessage(0);
 		return 0L;
 	}

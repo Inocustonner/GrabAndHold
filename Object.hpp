@@ -2,6 +2,7 @@
 #pragma once
 #define _OBJECT_HPP_
 #include <Windows.h>
+#include <iostream>
 namespace ObjectSpace
 {
 	struct SIZE
@@ -120,32 +121,36 @@ namespace ObjectSpace
 	};
 	namespace
 	{
-		/* This function render objects. But it going to be changed soon for to support double buffering */
+		inline void MaskBitBlt(HDC *destDC, HDC* srcDC, HDC* maskDC, INT destX, INT destY, INT destWidth, INT destHeight, INT srcOffsetX, INT srcOffsetY, INT maskOffsetX, INT maskOffsetY)
+		{
+			BitBlt(*destDC,
+				destX, destY,
+				destWidth, destHeight,
+				*srcDC, srcOffsetX, srcOffsetY, SRCINVERT);
+			BitBlt(*destDC,
+				destX, destY,
+				destWidth, destHeight,
+				*maskDC, maskOffsetX, maskOffsetY, SRCAND);
+			BitBlt(*destDC,
+				destX, destY,
+				destWidth, destHeight,
+				*srcDC, srcOffsetX, srcOffsetY, SRCINVERT);
+		}
 		void Render(HDC* hdc, Object **objects, SHORT count)
 		{
 			HDC memDC = CreateCompatibleDC(*hdc);
 			HDC maskDC = CreateCompatibleDC(*hdc);
-			HGDIOBJ oldBmp = NULL;
-			HGDIOBJ oldMask = NULL;
-
+			HGDIOBJ oldBmp = nullptr;
+			HGDIOBJ oldMask = nullptr;
 			for (SHORT i = 0; i < count; ++i)
 			{
 				oldBmp = SelectObject(memDC, objects[i]->GetSprite());
 				oldMask = SelectObject(maskDC, objects[i]->GetMask());
 				/* Do drawing with mask */
-				BitBlt(*hdc,
-					objects[i]->GetPos().X, objects[i]->GetPos().Y,
+				MaskBitBlt(hdc, &memDC, &maskDC, objects[i]->GetPos().X, objects[i]->GetPos().Y,
 					objects[i]->GetSize().width, objects[i]->GetSize().height,
-					memDC, 0, 0, SRCINVERT);
-				BitBlt(*hdc,
-					objects[i]->GetPos().X, objects[i]->GetPos().Y,
-					objects[i]->GetSize().width, objects[i]->GetSize().height,
-					maskDC, 0, 0, SRCAND);
-				BitBlt(*hdc,
-					objects[i]->GetPos().X, objects[i]->GetPos().Y,
-					objects[i]->GetSize().width, objects[i]->GetSize().height,
-					memDC, 0, 0, SRCINVERT);
-
+					0, 0,
+					0, 0);
 				SelectObject(memDC, oldBmp);
 				SelectObject(maskDC, oldMask);
 			}
