@@ -37,7 +37,7 @@ bool MainWindow::Initialize(HINSTANCE hInstance, INT width, INT height, BOOL ful
 	LPCSTR paths[count] = { "./test.bmp", "./test2.bmp" };
 	LPCSTR maskPaths[count] = { "./testMask.bmp", "./testMask.bmp" };
 	COORD poses[count] = { {50, 50}, {200, 100} };
-	COORD grabs[count] = { {0, 0}, {0, 0} };
+	COORD grabs[count] = { {30, 0}, {30, 0} };
 	if (!CreateObjects(count, paths, maskPaths, poses, grabs))
 		return false;
 	return true;
@@ -106,12 +106,13 @@ bool MainWindow::InitializeWindow(HINSTANCE hInstance, INT width, INT height, BO
 		NULL,
 		NULL,
 		hInstance,
-		NULL);
+		this);
 	if (!m_hWnd)
 	{
 		MessageBox(NULL, "Failed to create window", "Error", MB_OK);
 		return false;
 	}
+	SetWindowLongPtr(m_hWnd, GWLP_USERDATA, (LONG_PTR)this);/* set data for the lParam related to this window */
 	UpdateWindow(m_hWnd);
 	ShowWindow(m_hWnd, SW_SHOW);
 	return true;
@@ -131,12 +132,6 @@ void MainWindow::Run()
 		{
 			DispatchMessage(&msg);
 			TranslateMessage(&msg);
-			if (WM_PAINT == msg.message)
-			{
-				HDC hdc = GetDC(m_hWnd);
-				ObjectSpace::Render(&hdc, m_ppobjs, m_objsCnt);
-				ReleaseDC(m_hWnd, hdc);
-			}
 		}
 	}
 }
@@ -148,7 +143,10 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 	case WM_PAINT:
 	{
 		PAINTSTRUCT ps;
+		MainWindow* mw = (MainWindow*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 		HDC hdc = BeginPaint(hWnd, &ps);
+
+		ObjectSpace::Render(&hdc, mw->m_ppobjs, mw->m_objsCnt);
 		EndPaint(hWnd, &ps);
 		return 0L;
 	}
@@ -159,13 +157,71 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 		GetClientRect(hWnd, &rc);
 		FillRect(hdc, &rc, CreateSolidBrush(RGB(0xFF, 0xFF, 0xFF)));
 		ReleaseDC(hWnd, hdc);
-		return 1L;
+		return 0L;
+	}
+	/* if user clicked then look was it click on an object and if he did set the object as chosen */
+	case WM_LBUTTONDOWN:
+	{
+		COORD p;// mouse position on the window
+		p.Y = HIWORD(lParam);
+		p.X = LOWORD(lParam);
+		MainWindow* mw = (MainWindow*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+		INT nearest = ~(1 << 31); /* squared distance between points */
+		SHORT chosen = -1; /* position chosen object in the array of objects*/
+		COORD pos;
+		COORD grabPoint;
+		ObjectSpace::SIZE sz;
+		for (SHORT i = 0; i < mw->m_objsCnt; ++i)
+		{
+			pos = mw->m_ppobjs[i]->GetPos();
+			sz = mw->m_ppobjs[i]->GetSize();
+			if (((USHORT)(p.X - pos.X) <= sz.width) & ((USHORT)(p.Y - pos.Y) <= sz.height))
+			{
+				grabPoint = mw->m_ppobjs[i]->GetGrabPoint();
+				/* calculate distance between grab point and click pos */
+				if (nearest > (p.X - grabPoint.X)*(p.X - grabPoint.X) + (p.Y - grabPoint.Y)*(p.X - grabPoint.X))
+				{
+					chosen = i;
+					nearest = (p.X - grabPoint.X)*(p.X - grabPoint.X) + (p.Y - grabPoint.Y)*(p.X - grabPoint.X);
+				}
+			}
+		}
+		if (-1 == chosen)
+		{
+			mw->m_chosen = nullptr;
+			return 0L;
+		}
+		mw->m_chosen = mw->m_ppobjs[chosen];
+		return 0L;
+	}
+	case WM_MOUSEMOVE:
+	{
+		if ((MK_LBUTTON == wParam))
+		{
+			MainWindow* mw = (MainWindow*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+			if (nullptr != mw->m_chosen)
+			{
+				COORD p;/* mouse position on the window */
+				p.Y = HIWORD(lParam);
+				p.X = LOWORD(lParam);
+				COORD oldPos = mw->m_chosen->GetPos();
+				mw->m_chosen->MoveTo(p);
+				RECT redrawRgn{ oldPos.X, oldPos.Y,
+					oldPos.X + mw->m_chosen->GetSize().width, oldPos.Y + mw->m_chosen->GetSize().height };
+				InvalidateRect(hWnd, nullptr, TRUE);
+			}
+		}
+		return 0L;
 	}
 	case WM_KEYDOWN:
 	{
-		if (VK_ESCAPE == wParam)
+		switch (wParam)
+		{
+		case VK_ESCAPE:
 		{
 			PostQuitMessage(0);
+			break;
+		}
 		}
 		return 0L;
 	}

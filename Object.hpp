@@ -4,9 +4,9 @@
 #include <Windows.h>
 namespace ObjectSpace
 {
-	struct Size
+	struct SIZE
 	{
-		short width, height;
+		unsigned short width, height;
 	};
 	class Object
 	{
@@ -16,7 +16,7 @@ namespace ObjectSpace
 		COORD m_pos;
 		COORD m_velocity;
 		COORD m_grabPoint;
-		Size m_size;
+		SIZE m_size;
 
 	public:
 		Object() = default;
@@ -88,29 +88,34 @@ namespace ObjectSpace
 			if (m_sprite)
 				DeleteObject(m_sprite);
 		}
-		COORD GetPos()
+		COORD GetPos() const noexcept
 		{
 			return m_pos;
 		}
-		COORD GetVelocity()
+		COORD GetVelocity() const noexcept
 		{
 			return m_velocity;
 		}
-		COORD GetGrabPoint()
+		COORD GetGrabPoint() const noexcept
 		{
 			return m_grabPoint;
 		}
-		HBITMAP GetSprite()
+		HBITMAP GetSprite() const noexcept
 		{
 			return m_sprite;
 		}
-		HBITMAP GetMask()
+		HBITMAP GetMask() const noexcept
 		{
 			return m_mask;
 		}
-		Size GetSize()
+		SIZE GetSize() const noexcept
 		{
 			return m_size;
+		}
+		void MoveTo(COORD toPos)
+		{
+			m_pos.X = toPos.X - m_grabPoint.X;
+			m_pos.Y = toPos.Y - m_grabPoint.Y;
 		}
 	};
 	namespace

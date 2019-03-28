@@ -23,6 +23,7 @@ private:
 	HWND m_hWnd;
 	DWORD m_style;
 	NObject** m_ppobjs;
+	NObject* m_chosen = nullptr;
 	SHORT m_objsCnt;
 };
 #endif
