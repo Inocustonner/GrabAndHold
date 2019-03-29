@@ -122,6 +122,7 @@ void MainWindow::Run()
 {
 	MSG msg = { 0 };
 	BOOL ret;
+	BOOL isOnSurface = FALSE;
 	while (ret = GetMessage(&msg, NULL, NULL, NULL))
 	{
 		if (-1 == ret)
@@ -180,7 +181,7 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 	{
 		PAINTSTRUCT ps;
 		MainWindow* mw = (MainWindow*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
-		DrawBackGround(hWnd, &backbuffer, bg, nullptr, { 500, 500 });
+		DrawBackGround(hWnd, &backbuffer, bg, nullptr, { 0, 0 });
 		ObjectSpace::Render(&backbuffer, mw->m_ppobjs, mw->m_objsCnt);
 
 		HDC hdc = BeginPaint(hWnd, &ps);

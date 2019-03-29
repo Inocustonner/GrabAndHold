@@ -45,13 +45,13 @@ namespace ObjectSpace
 				return;
 			}
 			BITMAP bmp;
-			GetObject(m_sprite, sizeof bmp, &bmp);	
+			GetObject(m_sprite, sizeof bmp, &bmp);
 			m_size.width = (SHORT)bmp.bmWidth;
 			m_size.height = (SHORT)bmp.bmHeight;
 		}
 		bool Initialize(LPCSTR path, LPCSTR maskPath, COORD pos, COORD grabPoint)
 		{
-			m_pos = pos; 
+			m_pos = pos;
 			m_grabPoint = grabPoint;
 			m_sprite = (HBITMAP)LoadImage(NULL, path, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 			if (NULL == m_sprite)
