@@ -3,6 +3,7 @@
 #define _OBJECT_HPP_
 #include <Windows.h>
 #include <iostream>
+#include <chrono>
 namespace ObjectSpace
 {
 	struct SIZE
@@ -18,6 +19,7 @@ namespace ObjectSpace
 		COORD m_velocity;
 		COORD m_grabPoint;
 		SIZE m_size;
+		std::chrono::time_point<std::chrono::system_clock> m_timeChecked;
 
 	public:
 		Object() = default;
@@ -69,6 +71,10 @@ namespace ObjectSpace
 			GetObject(m_sprite, sizeof bmp, &bmp);
 			m_size.width = (SHORT)bmp.bmWidth;
 			m_size.height = (SHORT)bmp.bmHeight;
+
+
+			m_timeChecked = std::chrono::system_clock::now();
+			m_velocity = { 0, 10 };
 			return true;
 		}
 
@@ -113,14 +119,34 @@ namespace ObjectSpace
 		{
 			return m_size;
 		}
+		INT GetTimeDelta() const noexcept
+		{
+			 std::chrono::duration<double> delta = std::chrono::system_clock::now() - m_timeChecked;
+			 return (INT)(delta.count() * 100);
+		}
 		void MoveTo(COORD toPos)
 		{
-			m_pos.X = toPos.X - m_grabPoint.X;
-			m_pos.Y = toPos.Y - m_grabPoint.Y;
+			m_pos.X = toPos.X;// -m_grabPoint.X;
+			m_pos.Y = toPos.Y;// -m_grabPoint.Y;
+		}
+		void UpdateTime()
+		{
+			m_timeChecked = std::chrono::system_clock::now();
 		}
 	};
 	namespace
 	{
+		void ComputatePos(Object* obj)// TODO: make this work better
+		{
+			INT t = obj->GetTimeDelta();
+			if (t < 50)
+				return;
+			INT v = obj->GetVelocity().Y;
+			COORD pos = obj->GetPos();
+			pos.Y += (v * t + 50) / 100;
+			obj->MoveTo(pos);
+			obj->UpdateTime();
+		}
 		inline void MaskBitBlt(HDC *destDC, HDC* srcDC, HDC* maskDC, INT destX, INT destY, INT destWidth, INT destHeight, INT srcOffsetX, INT srcOffsetY, INT maskOffsetX, INT maskOffsetY)
 		{
 			BitBlt(*destDC,

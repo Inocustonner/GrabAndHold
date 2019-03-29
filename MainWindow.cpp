@@ -122,8 +122,7 @@ void MainWindow::Run()
 {
 	MSG msg = { 0 };
 	BOOL ret;
-	BOOL isOnSurface = FALSE;
-	while (ret = GetMessage(&msg, NULL, NULL, NULL))
+	/*while (ret = GetMessage(&msg, NULL, NULL, NULL))
 	{
 		if (-1 == ret)
 		{
@@ -133,6 +132,32 @@ void MainWindow::Run()
 		{
 			DispatchMessage(&msg);
 			TranslateMessage(&msg);
+		}
+	}*/
+	/* time at the start of a frame */
+	DOUBLE fps = 1.0 / 30.0;
+	std::chrono::time_point<std::chrono::system_clock> start_time;
+	/* to translate in double */
+	std::chrono::duration<DOUBLE> delta;
+	while (TRUE)
+	{
+		start_time = std::chrono::system_clock::now();
+		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+		{
+			DispatchMessage(&msg);
+			TranslateMessage(&msg);
+			if (msg.message == WM_DESTROY || msg.message == WM_QUIT)
+				break;
+		}
+		for (SHORT i = 0; i < m_objsCnt; ++i)
+		{
+			ObjectSpace::ComputatePos(m_ppobjs[i]);
+		}
+		InvalidateRect(m_hWnd, nullptr, FALSE);
+		delta = std::chrono::system_clock::now() - start_time;
+		if (delta.count() < fps)
+		{
+			Sleep((fps - delta.count()) * 100);
 		}
 	}
 }
@@ -177,7 +202,7 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 		bg = (HBITMAP)LoadImage(NULL, "./bgtest.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 		return 0L;
 	}
-	case WM_PAINT:
+	case WM_PAINT:// TODO : IF gonna rect small area rect only small area not all
 	{
 		PAINTSTRUCT ps;
 		MainWindow* mw = (MainWindow*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
