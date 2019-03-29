@@ -74,7 +74,7 @@ namespace ObjectSpace
 
 
 			m_timeChecked = std::chrono::system_clock::now();
-			m_velocity = { 0, 10 };
+			m_velocity = { 0, 1 };
 			return true;
 		}
 
@@ -136,14 +136,25 @@ namespace ObjectSpace
 	};
 	namespace
 	{
+		inline BOOL isVertIn(SHORT x, SHORT y, LPRECT pRect)
+		{
+			return ((pRect->left < x) & (x < pRect->right)) & ((pRect->top < y) & (y < pRect->bottom));
+		}
+		inline BOOL inRect(SHORT x, SHORT y, SHORT cx, SHORT cy, LPRECT pRect)
+		{
+			const short vertices = 4;
+			if (isVertIn(x, y, pRect)) return TRUE;
+			if (isVertIn(x + cx, y, pRect)) return TRUE;
+			if (isVertIn(x + cx, y + cy, pRect)) return TRUE;
+			if (isVertIn(x, y + cy, pRect)) return TRUE;
+			return FALSE;
+		}
 		void ComputatePos(Object* obj)// TODO: make this work better
 		{
 			INT t = obj->GetTimeDelta();
-			if (t < 50)
-				return;
 			INT v = obj->GetVelocity().Y;
 			COORD pos = obj->GetPos();
-			pos.Y += (v * t + 50) / 100;
+			pos.Y += v * t;
 			obj->MoveTo(pos);
 			obj->UpdateTime();
 		}
@@ -179,6 +190,34 @@ namespace ObjectSpace
 					0, 0);
 				SelectObject(memDC, oldBmp);
 				SelectObject(maskDC, oldMask);
+			}
+			DeleteObject(oldMask);
+			DeleteObject(oldBmp);
+			DeleteDC(memDC);
+			DeleteDC(maskDC);
+		}
+		void RenderRect(HDC* hdc, Object **objects, SHORT count, LPRECT pRect)
+		{
+			if (nullptr == pRect)
+				return;
+			HDC memDC = CreateCompatibleDC(*hdc);
+			HDC maskDC = CreateCompatibleDC(*hdc);
+			HGDIOBJ oldBmp = nullptr;
+			HGDIOBJ oldMask = nullptr;
+			for (SHORT i = 0; i < count; ++i)
+			{
+				if (inRect(objects[i]->GetPos().X, objects[i]->GetPos().Y, objects[i]->GetSize().width, objects[i]->GetSize().height, pRect))
+				{
+					oldBmp = SelectObject(memDC, objects[i]->GetSprite());
+					oldMask = SelectObject(maskDC, objects[i]->GetMask());
+					/* Do drawing with mask */
+					MaskBitBlt(hdc, &memDC, &maskDC, objects[i]->GetPos().X, objects[i]->GetPos().Y,
+						objects[i]->GetSize().width, objects[i]->GetSize().height,
+						0, 0,
+						0, 0);
+					SelectObject(memDC, oldBmp);
+					SelectObject(maskDC, oldMask);
+				}
 			}
 			DeleteObject(oldMask);
 			DeleteObject(oldBmp);

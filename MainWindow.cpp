@@ -1,5 +1,6 @@
 #include "MainWindow.hpp"
-bool RegisterWindow(LPCSTR wndName, HINSTANCE hInstance, LRESULT(CALLBACK *WndProc)(HWND, UINT, WPARAM, LPARAM))
+#include <iostream>
+BOOL RegisterWindow(LPCSTR wndName, HINSTANCE hInstance, LRESULT(CALLBACK *WndProc)(HWND, UINT, WPARAM, LPARAM))
 {
 	WNDCLASSEX wc;
 	ZeroMemory(&wc, sizeof WNDCLASSEX);
@@ -15,52 +16,103 @@ bool RegisterWindow(LPCSTR wndName, HINSTANCE hInstance, LRESULT(CALLBACK *WndPr
 	if (!RegisterClassEx(&wc))
 	{
 		MessageBox(NULL, "Failed to register window class", "Error", MB_OK);
-		return false;
+		return FALSE;
 	}
-	return true;
+	return TRUE;
 }
 
 MainWindow::~MainWindow()
 {
+	/* free all objects */
 	for (SHORT i = 0; i < m_objsCnt; ++i)
 	{
-		delete m_ppobjs[i];
+		if (m_ppobjs[i])
+			delete m_ppobjs[i];
 	}
-	delete[] m_ppobjs;
+	if (m_ppobjs)
+		delete[] m_ppobjs;
+	/* release backbuffer */
+	if (m_backBuffer)
+		DeleteObject(m_backBuffer);
+
+	if (m_backBufferDC)
+		DeleteDC(m_backBufferDC);
+	/* delete bg */
+	if (m_backGround)
+		DeleteObject(m_backGround);
 }
 
-bool MainWindow::Initialize(HINSTANCE hInstance, INT width, INT height, BOOL fullscreen)
+BOOL MainWindow::InitBackBuffer()
+{
+	HDC hdc = GetDC(m_hWnd);
+
+	m_backBufferDC = CreateCompatibleDC(hdc);
+
+	RECT rc;
+	GetClientRect(m_hWnd, &rc);/*                 width                height        */
+	m_backBuffer = CreateCompatibleBitmap(hdc, rc.right - rc.left, rc.bottom - rc.top);
+	SelectObject(m_backBufferDC, m_backBuffer);
+
+	ReleaseDC(m_hWnd, hdc);
+	return TRUE;
+}
+
+inline BOOL LoadBackGround(HBITMAP* bg, LPCSTR path)
+{
+	*bg = (HBITMAP)LoadImage(NULL, path, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+	if (NULL == *bg)
+	{
+		return FALSE;
+	}
+	return TRUE;
+}
+inline BOOL LoadBackGround(HBITMAP* bg, HBITMAP src)
+{
+	*bg = src;
+	if (NULL == *bg)
+	{
+		return FALSE;
+	}
+	return TRUE;
+}
+
+BOOL MainWindow::Initialize(HINSTANCE hInstance, INT width, INT height, BOOL fullscreen)
 {
 	if (!InitializeWindow(hInstance, width, height, fullscreen))
-		return false;
+		return FALSE;
+
 	const int count = 2;
 	LPCSTR paths[count] = { "./test.bmp", "./test2.bmp" };
 	LPCSTR maskPaths[count] = { "./testMask.bmp", "./testMask.bmp" };
 	COORD poses[count] = { {50, 50}, {200, 100} };
 	COORD grabs[count] = { {30, 0}, {30, 0} };
 	if (!CreateObjects(count, paths, maskPaths, poses, grabs))
-		return false;
-	return true;
+		return FALSE;
+
+	InitBackBuffer();
+	if (NULL == LoadBackGround(&m_backGround, "./bgtest.bmp"))
+		return FALSE;
+	return TRUE;
 }
 
-bool MainWindow::CreateObjects(SHORT count, LPCSTR* path, LPCSTR* maskPaths, COORD* positions, COORD* grabPoints)
+BOOL MainWindow::CreateObjects(SHORT count, LPCSTR* path, LPCSTR* maskPaths, COORD* positions, COORD* grabPoints)
 {
 	m_objsCnt = count;
 	m_ppobjs = new NObject*[m_objsCnt];
 	if (!m_ppobjs)
 	{
 		MessageBox(NULL, "Failed to allocate memory", "Error", MB_OK);
-		return false;
+		return FALSE;
 	}
 	for (SHORT i = 0; i < m_objsCnt; ++i)
 	{
 		m_ppobjs[i] = new NObject;
 		if (!m_ppobjs[i]->Initialize(path[i], maskPaths[i], positions[i], grabPoints[i]))
 		{
-			return false;
+			return FALSE;
 		}
 	}
-	return true;
+	return TRUE;
 }
 
 bool MainWindow::InitializeWindow(HINSTANCE hInstance, INT width, INT height, BOOL fullscreen)
@@ -118,6 +170,49 @@ bool MainWindow::InitializeWindow(HINSTANCE hInstance, INT width, INT height, BO
 	return true;
 }
 
+void DrawBackGround(HWND hWnd, HDC* hdc, HBITMAP backGround, RECT* lprect, COORD srcOff)
+{
+	HDC srcDC = CreateCompatibleDC(*hdc);
+	HGDIOBJ oldBmp = nullptr;
+	if (nullptr == lprect)
+	{
+		lprect = new RECT;
+		GetClientRect(hWnd, lprect);
+	}
+	oldBmp = SelectObject(srcDC, backGround);
+	BitBlt(*hdc, lprect->left, lprect->top, lprect->right - lprect->left, lprect->bottom - lprect->top, srcDC, srcOff.X, srcOff.Y, SRCCOPY);
+	SelectObject(srcDC, oldBmp);
+	DeleteObject(oldBmp);
+	DeleteDC(srcDC);
+}
+
+/* i've made this function because i don't know how to hook RECT from InvalidateRect function */
+void MainWindow::Draw(HWND hWnd, LPRECT pRect, BOOL bRepaintBG)
+{
+	/* if pRect is nullptr then redraw the entire client area */
+	BOOL isRectNew = FALSE;
+	if (bRepaintBG)
+	{
+		DrawBackGround(hWnd, &m_backBufferDC, m_backGround, pRect, { 0, 0 });
+	}
+	if (nullptr == pRect)
+	{
+		isRectNew = TRUE;
+		ObjectSpace::Render(&m_backBufferDC, m_ppobjs, m_objsCnt);/* render the entire area*/
+		pRect = new RECT;
+		GetClientRect(hWnd, pRect);
+	}
+	else
+	{
+		ObjectSpace::RenderRect(&m_backBufferDC, m_ppobjs, m_objsCnt, pRect);/* render only rect area */
+	}
+	HDC hdc = GetDC(m_hWnd);
+	BitBlt(hdc, pRect->left, pRect->top, pRect->right - pRect->left, pRect->bottom - pRect->top, m_backBufferDC, pRect->left, pRect->top, SRCCOPY);
+	ReleaseDC(m_hWnd, hdc);
+	if (TRUE == isRectNew) delete pRect;
+	return;
+}
+
 void MainWindow::Run()
 {
 	MSG msg = { 0 };
@@ -139,6 +234,7 @@ void MainWindow::Run()
 	std::chrono::time_point<std::chrono::system_clock> start_time;
 	/* to translate in double */
 	std::chrono::duration<DOUBLE> delta;
+	Draw(m_hWnd, nullptr, TRUE);
 	while (TRUE)
 	{
 		start_time = std::chrono::system_clock::now();
@@ -153,68 +249,24 @@ void MainWindow::Run()
 		{
 			ObjectSpace::ComputatePos(m_ppobjs[i]);
 		}
-		InvalidateRect(m_hWnd, nullptr, FALSE);
+		Draw(m_hWnd, nullptr, TRUE);
 		delta = std::chrono::system_clock::now() - start_time;
 		if (delta.count() < fps)
 		{
-			Sleep((fps - delta.count()) * 100);
+			Sleep((fps - delta.count()) * 500);
 		}
 	}
 }
 
-void DrawBackGround(HWND hWnd, HDC* hdc, HBITMAP backGround, RECT* lprect, COORD srcOff)
-{
-	HDC srcDC = CreateCompatibleDC(*hdc);
-	HGDIOBJ oldBmp = nullptr;
-	if (nullptr == lprect)
-	{
-		lprect = new RECT;
-		GetClientRect(hWnd, lprect);
-	}
-	oldBmp = SelectObject(srcDC, backGround);
-	BitBlt(*hdc, lprect->left, lprect->top, lprect->right - lprect->left, lprect->bottom - lprect->top, srcDC, srcOff.X, srcOff.Y, SRCCOPY);
-	SelectObject(srcDC, oldBmp);
-	DeleteObject(oldBmp);
-	DeleteDC(srcDC);
-}
-
 LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-	static HDC backbuffer;/* back buffer dc */
-	static HBITMAP backbufferBitmap;/* back buffer */
-	static HBITMAP bg;/* back ground image */
-	static ObjectSpace::SIZE areaSize; /* area size = Client area size */
 	switch (msg)
 	{
-	case WM_CREATE:
+	case WM_PAINT:/* have the Draw function instead */
 	{
-		HDC hdc = GetDC(hWnd);
-		backbuffer = CreateCompatibleDC(hdc);
-
-		RECT rc;
-		GetClientRect(hWnd, &rc);
-		areaSize.width = rc.right - rc.left;
-		areaSize.height = rc.bottom - rc.top;
-		backbufferBitmap = CreateCompatibleBitmap(hdc, areaSize.width, areaSize.height);
-		SelectObject(backbuffer, backbufferBitmap);
-		ReleaseDC(hWnd, hdc);
-
-		bg = (HBITMAP)LoadImage(NULL, "./bgtest.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 		return 0L;
 	}
-	case WM_PAINT:// TODO : IF gonna rect small area rect only small area not all
-	{
-		PAINTSTRUCT ps;
-		MainWindow* mw = (MainWindow*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
-		DrawBackGround(hWnd, &backbuffer, bg, nullptr, { 0, 0 });
-		ObjectSpace::Render(&backbuffer, mw->m_ppobjs, mw->m_objsCnt);
-
-		HDC hdc = BeginPaint(hWnd, &ps);
-		BitBlt(hdc, 0, 0, areaSize.width, areaSize.height, backbuffer, 0, 0, SRCCOPY);
-		EndPaint(hWnd, &ps);
-		return 0L;
-	}
-	case WM_ERASEBKGND:
+	case WM_ERASEBKGND:/* have the Draw function instead */
 	{
 		return 1L;
 	}
@@ -264,7 +316,8 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 				p.Y = HIWORD(lParam);
 				p.X = LOWORD(lParam);
 				mw->m_chosen->MoveTo(p);
-				InvalidateRect(hWnd, nullptr, FALSE);
+				mw->m_chosen->UpdateTime();
+				//mw->Draw(hWnd, nullptr, TRUE);
 			}
 		}
 		return 0L;
@@ -284,9 +337,6 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM 
 	case WM_DESTROY:
 	case WM_QUIT:
 	{
-		DeleteObject(backbufferBitmap);
-		DeleteObject(bg);
-		DeleteDC(backbuffer);
 		PostQuitMessage(0);
 		return 0L;
 	}
